@@ -1,27 +1,36 @@
-from sentence_transformers import SentenceTransformer
+import pickle
+from pathlib import Path
+
 import faiss
-import numpy as np
+from sentence_transformers import SentenceTransformer
 
 
 class Retriever:
     def __init__(self):
         self.model = SentenceTransformer("all-MiniLM-L6-v2")
 
-        # Sample knowledge base (replace later with real docs)
-        self.documents = [
-            "Cloud Connect is a network solution that enables seamless connectivity.",
-            "Polarin NaaS helps manage network services efficiently.",
-            "Latency is the time delay in network communication.",
-        ]
+        repo_root = Path(__file__).resolve().parent.parent.parent.parent
+        index_dir = repo_root / "vectorstore" / "faiss_index"
+        self.index_path = index_dir / "index.faiss"
+        self.documents_path = index_dir / "documents.pkl"
 
-        # Create embeddings
-        self.embeddings = self.model.encode(self.documents)
-        self.index = faiss.IndexFlatL2(self.embeddings.shape[1])
-        self.index.add(np.array(self.embeddings))
+        if not self.index_path.exists() or not self.documents_path.exists():
+            raise FileNotFoundError(
+                "FAISS index or documents file not found. "
+                "Please run: python scripts/ingest_kb.py"
+            )
+
+        self.index = faiss.read_index(str(self.index_path))
+        with self.documents_path.open("rb") as f:
+            self.documents = pickle.load(f)
 
     def retrieve(self, query: str, top_k=2):
         query_embedding = self.model.encode([query])
         distances, indices = self.index.search(query_embedding, top_k)
 
-        results = [self.documents[i] for i in indices[0]]
+        results = []
+        for idx in indices[0]:
+            if idx >= 0 and idx < len(self.documents):
+                results.append(self.documents[idx])
+
         return results
