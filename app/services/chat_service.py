@@ -1,4 +1,5 @@
 from app.llm.client import LLMClient
+from app.llm.prompt_manager import build_rag_prompt
 from app.services.rag.retriever import Retriever
 
 
@@ -12,18 +13,6 @@ class ChatService:
 
         context = "\n".join(context_docs)
 
-        prompt = f"""
-You are an AI assistant.
-
-Use the following context to answer the question.
-
-Context:
-{context}
-
-Question:
-{message}
-
-Answer clearly based on context.
-"""
+        prompt = build_rag_prompt(context, message)
 
         return self.llm.generate(prompt)
